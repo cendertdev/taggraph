@@ -6,6 +6,8 @@
 
 class TagGraph {
 	constructor(containerId, options = {}) {
+		console.log("TagGraph constructor called with containerId:", containerId);
+		
 		this.containerId = containerId;
 		this.container = document.getElementById(containerId);
 		if (!this.container) {
@@ -38,16 +40,24 @@ class TagGraph {
 		};
 
 		// Use provided data or get it from window
-		this.originalData =
-			options.data ||
-			(window.tagGraphData
-				? JSON.parse(JSON.stringify(window.tagGraphData))
-				: null);
+		this.originalData = options.data;
+		
+		// If no data provided directly, try to get it from window
+		if (!this.originalData && window.tagGraphData) {
+			console.log("Using tagGraphData from window:", window.tagGraphData);
+			this.originalData = JSON.parse(JSON.stringify(window.tagGraphData));
+		}
 
 		if (!this.originalData) {
 			console.error("Tag graph data not found");
 			return;
 		}
+
+		// Log data stats
+		console.log("TagGraph initialized with data:", {
+			nodes: this.originalData.nodes.length,
+			links: this.originalData.links.length
+		});
 
 		// Make a copy of the data for manipulation
 		this.data = JSON.parse(JSON.stringify(this.originalData));
@@ -60,6 +70,8 @@ class TagGraph {
 	}
 
 	init() {
+		console.log("Initializing TagGraph visualization");
+		
 		// Create SVG container
 		this.svg = d3
 			.select(this.container)
@@ -93,31 +105,50 @@ class TagGraph {
 
 		// Render the graph
 		this.render();
+		
+		console.log("TagGraph visualization initialized");
 	}
 
 	render() {
+		console.log("Rendering TagGraph with nodes:", this.data.nodes.length);
+		
 		// Clear existing elements
 		this.g.selectAll("*").remove();
 
 		// Calculate node sizes based on count
 		this.nodeScale = d3
 			.scaleSqrt()
-			.domain([1, d3.max(this.data.nodes, (d) => d.count)])
+			.domain([1, d3.max(this.data.nodes, (d) => d.count || 1)])
 			.range([this.config.minNodeSize, this.config.maxNodeSize]);
 
 		// Add groups for links and nodes
 		this.linkGroup = this.g.append("g").attr("class", "links");
 		this.nodeGroup = this.g.append("g").attr("class", "nodes");
 
+		// Ensure source and target are properly set for force layout
+		// D3 force layout expects objects, not just IDs
+		const nodeById = {};
+		this.data.nodes.forEach(node => {
+			nodeById[node.id] = node;
+		});
+		
+		const links = this.data.links.map(link => {
+			return {
+				...link,
+				source: typeof link.source === 'string' ? nodeById[link.source] : link.source,
+				target: typeof link.target === 'string' ? nodeById[link.target] : link.target
+			};
+		});
+
 		// Create links
 		this.links = this.linkGroup
 			.selectAll("line")
-			.data(this.data.links)
+			.data(links)
 			.enter()
 			.append("line")
 			.attr("stroke", (d) => this.getLinkColor(d))
 			.attr("stroke-opacity", this.config.linkOpacity)
-			.attr("stroke-width", (d) => Math.sqrt(d.value));
+			.attr("stroke-width", (d) => Math.sqrt(d.value || 1));
 
 		// Create nodes
 		this.nodes = this.nodeGroup
@@ -134,7 +165,7 @@ class TagGraph {
 		// Add circles for each node
 		this.nodes
 			.append("circle")
-			.attr("r", (d) => this.nodeScale(d.count))
+			.attr("r", (d) => this.nodeScale(d.count || 1))
 			.attr("fill", (d, i) => this.getNodeColor(d, i))
 			.attr("stroke", this.config.nodeBorder)
 			.attr("stroke-width", (d) =>
@@ -148,7 +179,7 @@ class TagGraph {
 			this.nodes
 				.append("text")
 				.attr("x", 0)
-				.attr("y", (d) => -this.nodeScale(d.count) - 2)
+				.attr("y", (d) => -this.nodeScale(d.count || 1) - 2)
 				.attr("text-anchor", "middle")
 				.attr("fill", (d) =>
 					d.isCurrentPostTag ? "#000" : this.config.labelColor
@@ -165,7 +196,7 @@ class TagGraph {
 		// Add tooltips
 		this.nodes.append("title").text((d) => {
 			const postTagIndicator = d.isCurrentPostTag ? " (Current Post)" : "";
-			return `${d.name}${postTagIndicator}: ${d.count} posts`;
+			return `${d.name}${postTagIndicator}: ${d.count || 1} posts`;
 		});
 
 		// Create force simulation
@@ -174,7 +205,7 @@ class TagGraph {
 			.force(
 				"link",
 				d3
-					.forceLink(this.data.links)
+					.forceLink(links)
 					.id((d) => d.id)
 					.distance(100)
 					.strength(
@@ -190,7 +221,7 @@ class TagGraph {
 			)
 			.force(
 				"collide",
-				d3.forceCollide().radius((d) => this.nodeScale(d.count) + 10)
+				d3.forceCollide().radius((d) => this.nodeScale(d.count || 1) + 10)
 			);
 
 		// Helper function to get count
@@ -210,6 +241,8 @@ class TagGraph {
 			this.simulation.stop();
 			this.updatePositions();
 		}
+		
+		console.log("TagGraph rendering complete");
 	}
 
 	getNodeColor(d, i) {
@@ -448,3 +481,9 @@ class TagGraph {
 		this.container.appendChild(controls);
 	}
 }
+
+// Export the TagGraph class to the window object
+window.TagGraph = TagGraph;
+
+// Log when the script is loaded
+console.log("TagGraph script loaded successfully");

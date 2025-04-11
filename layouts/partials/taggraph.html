@@ -1,77 +1,118 @@
-{{ $jsOptions := dict
-"targetPath" "js/taggraph-bundle.js"
-"params" (dict
-"minNodeSize" (.Site.Params.tagGraph.minNodeSize | default 5)
-"maxNodeSize" (.Site.Params.tagGraph.maxNodeSize | default 20)
-"graphWidth" (.Site.Params.tagGraph.width | default 800)
-"graphHeight" (.Site.Params.tagGraph.height | default 600)
-)
-}}
-
+{{ $params := dict "minNodeSize" 5 "maxNodeSize" 20 "graphWidth" 800 "graphHeight" 600 }}
+{{ $jsOptions := dict "targetPath" "js/taggraph-bundle.js" "params" $params }}
 {{ $js := resources.Get "js/taggraph.js" | js.Build $jsOptions }}
 
-<script src="https://d3js.org/d3.v7.min.js" defer></script>
+<!-- D3 library -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
 
-<div id="tag-graph-container" class="tag-graph" style="width: {{ .Site.Params.tagGraph.width | default " 800px" }};
-    height: {{ .Site.Params.tagGraph.height | default "600px" }};">
+<!-- Your TagGraph container -->
+<div id="tag-graph-container" class="tag-graph" style="width: {{ .Site.Params.tagGraph.width | default "800px" }}; height: {{ .Site.Params.tagGraph.height | default "600px" }};">
 </div>
 
-<script>
-    // This will hold our tag data for the visualization
-    const tagGraphData = {
-        nodes: [],
-        links: []
-    };
-
-    // Process tags from all pages/posts
-    { { range.Site.RegularPages } }
-    { { $currentPageTags:= .Params.tags } }
-    { { with $currentPageTags } }
-    { { range. } }
-    // Add tag as node if it doesn't exist
-    if (!tagGraphData.nodes.some(node => node.id === "{{ . }}")) {
-        tagGraphData.nodes.push({
-            id: "{{ . }}",
-            name: "{{ . }}",
-            count: 1
-        });
-    } else {
-        // Increment count for existing tag
-        const existingNode = tagGraphData.nodes.find(node => node.id === "{{ . }}");
-        existingNode.count += 1;
-    }
-
-    // Create links between co-occurring tags on this page
-    { { range $currentPageTags } }
-    { { $targetTag:= . } }
-    { { range $currentPageTags } }
-    { { if ne.$targetTag } }
-    // Add link between tags if they appear on the same page
-    const linkId = ["{{ $targetTag }}", "{{ . }}"].sort().join("-");
-    if (!tagGraphData.links.some(link => link.id === linkId)) {
-        tagGraphData.links.push({
-            id: linkId,
-            source: "{{ $targetTag }}",
-            target: "{{ . }}",
-            value: 1
-        });
-    } else {
-        // Increment weight of existing link
-        const existingLink = tagGraphData.links.find(link => link.id === linkId);
-        existingLink.value += 1;
-    }
-    { { end } }
-    { { end } }
-    { { end } }
-    { { end } }
-    { { end } }
-    { { end } }
-</script>
-
-{{ with resources.Get "js/d3.min.js" }}
-<script src="{{ .RelPermalink }}"></script>
-{{ else }}
-<script src="https://d3js.org/d3.v7.min.js"></script>
-{{ end }}
-
+<!-- Your compiled taggraph-bundle.js -->
 <script src="{{ $js.RelPermalink }}"></script>
+
+<!-- Runtime Data Generation & Graph Init -->
+<script>
+  // Define the global variable first with window to ensure it's in global scope
+  window.tagGraphData = {
+    nodes: [],
+    links: []
+  };
+  
+  // IMPORTANT: This script uses a different approach to avoid variable redeclaration
+  (function() {
+    // Helper function to add or update a node
+    function addOrUpdateNode(tagId, tagName) {
+      var foundNode = false;
+      for (var i = 0; i < window.tagGraphData.nodes.length; i++) {
+        if (window.tagGraphData.nodes[i].id === tagId) {
+          window.tagGraphData.nodes[i].count += 1;
+          foundNode = true;
+          break;
+        }
+      }
+      
+      if (!foundNode) {
+        window.tagGraphData.nodes.push({
+          id: tagId,
+          name: tagName,
+          count: 1
+        });
+      }
+    }
+    
+    // Helper function to add or update a link
+    function addOrUpdateLink(sourceId, targetId) {
+      var linkId = [sourceId, targetId].sort().join("-");
+      var foundLink = false;
+      
+      for (var i = 0; i < window.tagGraphData.links.length; i++) {
+        if (window.tagGraphData.links[i].id === linkId) {
+          window.tagGraphData.links[i].value += 1;
+          foundLink = true;
+          break;
+        }
+      }
+      
+      if (!foundLink) {
+        window.tagGraphData.links.push({
+          id: linkId,
+          source: sourceId,
+          target: targetId,
+          value: 1
+        });
+      }
+    }
+    
+    // Process all the tags from Hugo
+    {{ range .Site.RegularPages }}
+      {{ $tags := .Params.tags }}
+      {{ with $tags }}
+        {{ range . }}
+          addOrUpdateNode("{{ . }}", "{{ . }}");
+        {{ end }}
+        
+        {{ range $i, $source := $tags }}
+          {{ range $j, $target := $tags }}
+            {{ if lt $i $j }}
+              addOrUpdateLink("{{ $source }}", "{{ $target }}");
+            {{ end }}
+          {{ end }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
+    
+    console.log("Tag graph data generated:", {
+      nodes: window.tagGraphData.nodes.length,
+      links: window.tagGraphData.links.length
+    });
+  })();
+  
+  // Initialize the graph once DOM is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM loaded, initializing graph...");
+    const container = document.getElementById('tag-graph-container');
+    
+    if (container && window.tagGraphData && window.tagGraphData.nodes.length > 0 && typeof TagGraph === 'function') {
+      try {
+        console.log("Creating new TagGraph instance");
+        new TagGraph("tag-graph-container", {
+          data: window.tagGraphData,
+          nodeColorFn: d => "#1f77b4",
+          linkColorFn: d => "#999"
+        });
+        console.log("TagGraph initialized successfully");
+      } catch (e) {
+        console.error("Error initializing TagGraph:", e);
+      }
+    } else {
+      console.warn("Cannot initialize TagGraph. Missing requirements:", {
+        container: !!container,
+        TagGraph: typeof TagGraph === 'function',
+        tagGraphData: !!window.tagGraphData,
+        nodesCount: window.tagGraphData ? window.tagGraphData.nodes.length : 0
+      });
+    }
+  });
+</script>

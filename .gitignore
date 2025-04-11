@@ -1,0 +1,10 @@
+# Hugo default output directory
+/public/
+/resources/_gen/
+/assets/jsconfig.json
+/hugo_stats.json
+
+# Module temporary files
+/exampleSite/public/
+/exampleSite/resources/
+/exampleSite/.hugo_build.lock
