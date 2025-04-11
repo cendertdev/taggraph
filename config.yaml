@@ -1,0 +1,75 @@
+module:
+  hugoVersion:
+    min: "0.111.0"
+  mounts:
+    - source: assets
+      target: assets
+    - source: layouts
+      target: layouts
+    - source: data
+      target: data
+# Example configuration for the Hugo Tag Graph module
+# Add these settings to your site's config.yaml or config.toml (in TOML format)
+
+# In config.yaml:
+params:
+  tagGraph:
+    # Dimensions
+    width: "800px"
+    height: "600px"
+
+    # Node sizing
+    minNodeSize: 5
+    maxNodeSize: 20
+
+    # Visual styling
+    colors:
+      - "#1f77b4" # blue
+      - "#ff7f0e" # orange
+      - "#2ca02c" # green
+      - "#d62728" # red
+      - "#9467bd" # purple
+      - "#8c564b" # brown
+      - "#e377c2" # pink
+      - "#7f7f7f" # gray
+      - "#bcbd22" # olive
+      - "#17becf" # teal
+
+    linkColor: "#999999"
+    linkOpacity: 0.6
+    backgroundColor: "#f9f9f9"
+    nodeBorder: "#ffffff"
+    nodeBorderWidth: 1.5
+
+    # Text options
+    labelColor: "#333333"
+    fontSize: 10
+    showLabels: true
+
+    # Animation
+    animate: true
+
+    # Performance
+    usePreprocessedData: true # Use data/tag_graph.json if available
+
+    # UI Options
+    showControls: true
+    enableSearch: true
+    enableZoom: true
+
+    # Advanced physics simulation settings
+    physics:
+      linkStrength: 0.7
+      chargeStrength: -300
+
+    # Where to show the graph
+    showOnTagPage: true
+    showOnHomePage: false
+    showInSidebar: false
+
+    # Limit large graphs
+    maxNodesShown: 100 # For performance, limit nodes shown (0 for unlimited)
+    minTagCount: 1 # Only show tags that appear on at least this many posts
+
+    # Loading message
+    loadingText: "Loading tag graph visualization..."

@@ -1,0 +1,187 @@
+// Modified version of tag-graph.html partial for post-specific context
+// layouts/partials/post-tag-graph.html
+
+{{ $jsOptions := dict
+"targetPath" "js/tag-graph-bundle.js"
+"params" (dict
+"minNodeSize" (.Site.Params.tagGraph.minNodeSize | default 5)
+"maxNodeSize" (.Site.Params.tagGraph.maxNodeSize | default 20)
+"graphWidth" (.Site.Params.tagGraph.width | default 800)
+"graphHeight" (.Site.Params.tagGraph.height | default 600)
+)
+}}
+
+{{ $js := resources.Get "js/tag-graph.js" | js.Build $jsOptions }}
+<script src="https://d3js.org/d3.v7.min.js" defer></script>
+<!-- Post context information - get the current post's tags -->
+{{ $currentPostTags := .Params.tags }}
+
+<div id="post-tag-graph-container" class="tag-graph post-tag-graph"
+    style="width: {{ .Site.Params.tagGraph.width | default " 800px" }}; height: {{ .Site.Params.tagGraph.height |
+    default "600px" }};" data-post-tags="{{ delimit $currentPostTags " ," }}">
+</div>
+
+<script>
+    // This will hold our tag data for the visualization
+    const tagGraphData = {
+        nodes: [],
+        links: []
+    };
+
+    // Current post's tags for highlighting
+    const currentPostTags = {{ $currentPostTags | jsonify }};
+
+    // Process tags from all pages/posts
+    { { range.Site.RegularPages } }
+    { { $pageTags:= .Params.tags } }
+    { { with $pageTags } }
+    { { range. } }
+    // Add tag as node if it doesn't exist
+    if (!tagGraphData.nodes.some(node => node.id === "{{ . }}")) {
+        // Check if this tag is in the current post
+        const isCurrentPostTag = currentPostTags.includes("{{ . }}");
+
+        tagGraphData.nodes.push({
+            id: "{{ . }}",
+            name: "{{ . }}",
+            count: 1,
+            isCurrentPostTag: isCurrentPostTag
+        });
+    } else {
+        // Increment count for existing tag
+        const existingNode = tagGraphData.nodes.find(node => node.id === "{{ . }}");
+        existingNode.count += 1;
+    }
+
+    // Create links between co-occurring tags on this page
+    { { range $pageTags } }
+    { { $targetTag:= . } }
+    { { range $pageTags } }
+    { { if ne.$targetTag } }
+    // Add link between tags if they appear on the same page
+    const linkId = ["{{ $targetTag }}", "{{ . }}"].sort().join("-");
+
+    // Check if both tags are from current post
+    const isCurrentPostLink = currentPostTags.includes("{{ $targetTag }}") &&
+        currentPostTags.includes("{{ . }}");
+
+    if (!tagGraphData.links.some(link => link.id === linkId)) {
+        tagGraphData.links.push({
+            id: linkId,
+            source: "{{ $targetTag }}",
+            target: "{{ . }}",
+            value: 1,
+            isCurrentPostLink: isCurrentPostLink
+        });
+    } else {
+        // Increment weight of existing link
+        const existingLink = tagGraphData.links.find(link => link.id === linkId);
+        existingLink.value += 1;
+    }
+    { { end } }
+    { { end } }
+    { { end } }
+    { { end } }
+    { { end } }
+    { { end } }
+
+    // Store the post-specific tag data in a differently named variable
+    window.postTagGraphData = tagGraphData;
+</script>
+
+{{ with resources.Get "js/d3.min.js" }}
+<script src="{{ .RelPermalink }}"></script>
+{{ else }}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+{{ end }}
+
+<script src="{{ $js.RelPermalink }}"></script>
+
+<script>
+    // Initialize the post-specific tag graph when the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', function () {
+        // Check if we have a post tag graph container
+        const container = document.getElementById('post-tag-graph-container');
+        if (container && window.postTagGraphData) {
+            const tagGraph = new TagGraph('post-tag-graph-container', {
+                // Use the post-specific data
+                data: window.postTagGraphData,
+                // Highlight current post's tags with different colors
+                highlightCurrentPostTags: true,
+                // Custom node color function
+                nodeColorFn: (d) => d.isCurrentPostTag ? "#ff7f0e" : "#1f77b4",
+                // Custom link color function
+                linkColorFn: (d) => d.isCurrentPostLink ? "#ff7f0e" : "#999",
+                // Current post context
+                isPostContext: true
+            });
+
+            // Add controls for toggling between global and post-specific views
+            addPostTagControls(container, tagGraph);
+        }
+    });
+
+    function addPostTagControls(container, tagGraph) {
+        // Create a control panel if it doesn't exist yet
+        let controls = container.querySelector('.post-tag-graph-controls');
+        if (!controls) {
+            controls = document.createElement("div");
+            controls.className = "post-tag-graph-controls";
+            controls.style.position = "absolute";
+            controls.style.top = "10px";
+            controls.style.right = "10px";
+            controls.style.background = "rgba(255, 255, 255, 0.8)";
+            controls.style.padding = "5px";
+            controls.style.borderRadius = "3px";
+            controls.style.border = "1px solid #ddd";
+            controls.style.fontSize = "12px";
+            container.appendChild(controls);
+        }
+
+        // Add toggle buttons for different views
+        const viewOptions = document.createElement("div");
+        viewOptions.style.marginBottom = "5px";
+
+        // Get post tags from data attribute
+        const postTagsStr = container.getAttribute('data-post-tags') || '';
+        const postTags = postTagsStr.split(',').filter(t => t.trim().length > 0);
+
+        // Button for showing all tags
+        const allTagsBtn = document.createElement("button");
+        allTagsBtn.textContent = "All Tags";
+        allTagsBtn.onclick = () => tagGraph.resetFilters();
+        viewOptions.appendChild(allTagsBtn);
+
+        // Button for showing only this post's tags and immediate connections
+        const postTagsBtn = document.createElement("button");
+        postTagsBtn.textContent = "This Post's Tags";
+        postTagsBtn.style.marginLeft = "5px";
+        postTagsBtn.onclick = () => {
+            // Filter the graph to only show this post's tags and direct connections
+            tagGraph.filterByMultipleTags(postTags);
+        };
+        viewOptions.appendChild(postTagsBtn);
+
+        // Add highlight toggle
+        const highlightToggle = document.createElement("div");
+        highlightToggle.style.marginTop = "5px";
+
+        const highlightCheck = document.createElement("input");
+        highlightCheck.type = "checkbox";
+        highlightCheck.id = "highlight-post-tags";
+        highlightCheck.checked = true;
+        highlightCheck.onchange = () => {
+            tagGraph.toggleHighlighting(highlightCheck.checked);
+        };
+        highlightToggle.appendChild(highlightCheck);
+
+        const highlightLabel = document.createElement("label");
+        highlightLabel.htmlFor = "highlight-post-tags";
+        highlightLabel.textContent = " Highlight Post's Tags";
+        highlightToggle.appendChild(highlightLabel);
+
+        // Add elements to controls
+        controls.appendChild(viewOptions);
+        controls.appendChild(highlightToggle);
+    }
+</script>

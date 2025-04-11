@@ -1,0 +1,77 @@
+{{ $jsOptions := dict
+"targetPath" "js/taggraph-bundle.js"
+"params" (dict
+"minNodeSize" (.Site.Params.tagGraph.minNodeSize | default 5)
+"maxNodeSize" (.Site.Params.tagGraph.maxNodeSize | default 20)
+"graphWidth" (.Site.Params.tagGraph.width | default 800)
+"graphHeight" (.Site.Params.tagGraph.height | default 600)
+)
+}}
+
+{{ $js := resources.Get "js/taggraph.js" | js.Build $jsOptions }}
+
+<script src="https://d3js.org/d3.v7.min.js" defer></script>
+
+<div id="tag-graph-container" class="tag-graph" style="width: {{ .Site.Params.tagGraph.width | default " 800px" }};
+    height: {{ .Site.Params.tagGraph.height | default "600px" }};">
+</div>
+
+<script>
+    // This will hold our tag data for the visualization
+    const tagGraphData = {
+        nodes: [],
+        links: []
+    };
+
+    // Process tags from all pages/posts
+    { { range.Site.RegularPages } }
+    { { $currentPageTags:= .Params.tags } }
+    { { with $currentPageTags } }
+    { { range. } }
+    // Add tag as node if it doesn't exist
+    if (!tagGraphData.nodes.some(node => node.id === "{{ . }}")) {
+        tagGraphData.nodes.push({
+            id: "{{ . }}",
+            name: "{{ . }}",
+            count: 1
+        });
+    } else {
+        // Increment count for existing tag
+        const existingNode = tagGraphData.nodes.find(node => node.id === "{{ . }}");
+        existingNode.count += 1;
+    }
+
+    // Create links between co-occurring tags on this page
+    { { range $currentPageTags } }
+    { { $targetTag:= . } }
+    { { range $currentPageTags } }
+    { { if ne.$targetTag } }
+    // Add link between tags if they appear on the same page
+    const linkId = ["{{ $targetTag }}", "{{ . }}"].sort().join("-");
+    if (!tagGraphData.links.some(link => link.id === linkId)) {
+        tagGraphData.links.push({
+            id: linkId,
+            source: "{{ $targetTag }}",
+            target: "{{ . }}",
+            value: 1
+        });
+    } else {
+        // Increment weight of existing link
+        const existingLink = tagGraphData.links.find(link => link.id === linkId);
+        existingLink.value += 1;
+    }
+    { { end } }
+    { { end } }
+    { { end } }
+    { { end } }
+    { { end } }
+    { { end } }
+</script>
+
+{{ with resources.Get "js/d3.min.js" }}
+<script src="{{ .RelPermalink }}"></script>
+{{ else }}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+{{ end }}
+
+<script src="{{ $js.RelPermalink }}"></script>

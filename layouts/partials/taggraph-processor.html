@@ -1,0 +1,70 @@
+// layouts/partials/tag-graph-processor.html
+// This template generates a data file for the tag graph
+// Include this in your site build process for better performance with large sites
+
+{{/* Only run this on the home page to avoid duplication */}}
+{{ if .IsHome }}
+{{ $tagsMap := dict }}
+{{ $linksMap := dict }}
+
+{{ $allTags := slice }}
+
+{{/* Process all pages */}}
+{{ range .Site.RegularPages }}
+{{ $pageTags := .Params.tags }}
+{{ if $pageTags }}
+{{ range $pageTags }}
+{{ $tag := . }}
+
+{{/* Add to all tags if not already there */}}
+{{ if not (in $allTags $tag) }}
+{{ $allTags = $allTags | append $tag }}
+{{ end }}
+
+{{/* Update tag count */}}
+{{ $currentCount := index $tagsMap $tag | default 0 }}
+{{ $tagsMap = merge $tagsMap (dict $tag (add $currentCount 1)) }}
+
+{{/* Create connections between tags */}}
+{{ range $pageTags }}
+{{ $otherTag := . }}
+{{ if ne $tag $otherTag }}
+{{/* Create a consistent key for the link */}}
+{{ $linkKey := slice $tag $otherTag | sort | delimit "-" }}
+{{ $linkCount := index $linksMap $linkKey | default 0 }}
+{{ $linksMap = merge $linksMap (dict $linkKey (add $linkCount 1)) }}
+{{ end }}
+{{ end }}
+{{ end }}
+{{ end }}
+{{ end }}
+
+{{/* Create nodes array */}}
+{{ $nodes := slice }}
+{{ range $tag, $count := $tagsMap }}
+{{ $nodeEntry := dict "id" $tag "name" $tag "count" $count }}
+{{ $nodes = $nodes | append $nodeEntry }}
+{{ end }}
+
+{{/* Create links array */}}
+{{ $links := slice }}
+{{ range $linkKey, $weight := $linksMap }}
+{{ $tagPair := split $linkKey "-" }}
+{{ $linkEntry := dict "source" (index $tagPair 0) "target" (index $tagPair 1) "value" $weight "id" $linkKey }}
+{{ $links = $links | append $linkEntry }}
+{{ end }}
+
+{{/* Combine into final data object */}}
+{{ $graphData := dict "nodes" $nodes "links" $links }}
+
+{{/* Save to data file */}}
+{{ $jsonData := $graphData | jsonify }}
+{{ $dataPath := "data/tag_graph.json" }}
+
+{{/* Output the JSON for debugging */}}
+<script>
+    console.log("Tag graph data processed: {{ len $nodes }} nodes, {{ len $links }} links");
+    // Store in a global variable for direct access 
+    window.tagGraphData = {{ $jsonData | safeJS }};
+</script>
+{{ end }}

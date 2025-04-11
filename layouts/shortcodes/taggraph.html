@@ -1,0 +1,8 @@
+{{ $width := .Get "width" | default (.Site.Params.tagGraph.width | default "800px") }}
+{{ $height := .Get "height" | default (.Site.Params.tagGraph.height | default "600px") }}
+{{ $style := .Get "style" | default "force" }}
+
+<div class="tag-graph-shortcode" data-style="{{ $style }}" style="width: {{ $width }}; height: {{ $height }};">
+</div>
+
+{{ partial "taggraph.html" . }}
