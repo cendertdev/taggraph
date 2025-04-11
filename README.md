@@ -30,7 +30,7 @@ hugo mod init github.com/yourusername/your-site-name
 # In config.yaml
 module:
   imports:
-    - path: github.com/yourusername/hugo-tag-graph
+    - path: github.com/cendertdev/taggraph
 ```
 
 3. Update your modules:
@@ -53,7 +53,7 @@ If you prefer not to use Hugo Modules:
 Add the tag graph to any template by including the partial:
 
 ```html
-{{ partial "tag-graph.html" . }}
+{{ partial "taggraph.html" . }}
 ```
 
 Or use the shortcode in your content:
@@ -84,7 +84,7 @@ On tag pages, you can automatically filter the graph to show only the current ta
 
 ```html
 <!-- layouts/taxonomy/tag.html -->
-{{ partial "tag-graph.html" . }}
+{{ partial "taggraph.html" . }}
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
@@ -112,7 +112,7 @@ For sites with many tags and posts, pre-processing can improve performance:
 
 ```html
 <!-- layouts/index.html -->
-{{ partial "tag-graph-processor.html" . }}
+{{ partial "taggraph-processor.html" . }}
 ```
 
 2. Enable pre-processed data usage in your config:
@@ -176,7 +176,7 @@ Add custom styles to override the defaults:
   <h2>Topics on This Blog</h2>
   <p>Explore the connections between topics covered in my articles:</p>
   
-  {{ partial "tag-graph.html" . }}
+  {{ partial "taggraph.html" . }}
   
   <p class="tag-info">
     Larger nodes indicate more frequent topics. 
