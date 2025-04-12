@@ -2,6 +2,14 @@
 {{ $jsOptions := dict "targetPath" "js/taggraph-bundle.js" "params" $params }}
 {{ $js := resources.Get "js/taggraph.js" | js.Build $jsOptions }}
 
+{{ $responsiveJsOptions := dict "targetPath" "js/responsive-taggraph-bundle.js" "params" $params }}
+{{ $responsiveJs := resources.Get "js/responsive-graph.js" | js.Build $responsiveJsOptions }}
+
+{{ $initJsOptions := dict "targetPath" "js/responsive-init-bundle.js" "params" $params }}
+{{ $initJs := resources.Get "js/responsive-init.js" | js.Build $initJsOptions }}
+
+<div>TagGraph Visualization</div>
+
 <!-- D3 library -->
 <script src="https://d3js.org/d3.v7.min.js"></script>
 
@@ -11,6 +19,9 @@
 
 <!-- Your compiled taggraph-bundle.js -->
 <script src="{{ $js.RelPermalink }}"></script>
+
+<!-- Your compiled responsive-taggraph-bundle.js -->
+<script src="{{ $responsiveJs.RelPermalink }}"></script>
 
 <!-- Runtime Data Generation & Graph Init -->
 <script>
@@ -88,31 +99,9 @@
       links: window.tagGraphData.links.length
     });
   })();
-  
-  // Initialize the graph once DOM is loaded
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM loaded, initializing graph...");
-    const container = document.getElementById('tag-graph-container');
-    
-    if (container && window.tagGraphData && window.tagGraphData.nodes.length > 0 && typeof TagGraph === 'function') {
-      try {
-        console.log("Creating new TagGraph instance");
-        new TagGraph("tag-graph-container", {
-          data: window.tagGraphData,
-          nodeColorFn: d => "#1f77b4",
-          linkColorFn: d => "#999"
-        });
-        console.log("TagGraph initialized successfully");
-      } catch (e) {
-        console.error("Error initializing TagGraph:", e);
-      }
-    } else {
-      console.warn("Cannot initialize TagGraph. Missing requirements:", {
-        container: !!container,
-        TagGraph: typeof TagGraph === 'function',
-        tagGraphData: !!window.tagGraphData,
-        nodesCount: window.tagGraphData ? window.tagGraphData.nodes.length : 0
-      });
-    }
-  });
 </script>
+
+<!-- Initialize ResponsiveTagGraph -->
+<script src="{{ $initJs.RelPermalink }}"></script>
+
+<div>TagGraph Visualization Complete</div>

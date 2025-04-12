@@ -1,24 +1,19 @@
-// Modified version of tag-graph.html partial for post-specific context
-// layouts/partials/post-tag-graph.html
+<!-- layouts/partials/post-taggraph.html -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
 
-{{ $jsOptions := dict
-"targetPath" "js/tag-graph-bundle.js"
-"params" (dict
-"minNodeSize" (.Site.Params.tagGraph.minNodeSize | default 5)
-"maxNodeSize" (.Site.Params.tagGraph.maxNodeSize | default 20)
-"graphWidth" (.Site.Params.tagGraph.width | default 800)
-"graphHeight" (.Site.Params.tagGraph.height | default 600)
-)
-}}
+{{ $params := dict "minNodeSize" (default 5 .Site.Params.tagGraph.minNodeSize) "maxNodeSize" (default 20 .Site.Params.tagGraph.maxNodeSize) "graphWidth"  (default 800 .Site.Params.tagGraph.width) "graphHeight" (default 600 .Site.Params.tagGraph.height) }}
 
-{{ $js := resources.Get "js/tag-graph.js" | js.Build $jsOptions }}
-<script src="https://d3js.org/d3.v7.min.js" defer></script>
+{{ $jsOptions := dict "targetPath" "js/taggraph-bundle.js" "params" $params }}
+
+{{ $js := resources.Get "js/taggraph.js" | js.Build $jsOptions }}
 <!-- Post context information - get the current post's tags -->
 {{ $currentPostTags := .Params.tags }}
 
-<div id="post-tag-graph-container" class="tag-graph post-tag-graph"
-    style="width: {{ .Site.Params.tagGraph.width | default " 800px" }}; height: {{ .Site.Params.tagGraph.height |
-    default "600px" }};" data-post-tags="{{ delimit $currentPostTags " ," }}">
+<div 
+    id="post-tag-graph-container" 
+    class="tag-graph post-tag-graph"
+    style="width: {{ default "800px" .Site.Params.tagGraph.width }}; height: {{ default "600px" .Site.Params.tagGraph.height }};" 
+    data-post-tags="{{ delimit $currentPostTags ',' }}">
 </div>
 
 <script>
@@ -32,68 +27,62 @@
     const currentPostTags = {{ $currentPostTags | jsonify }};
 
     // Process tags from all pages/posts
-    { { range.Site.RegularPages } }
-    { { $pageTags:= .Params.tags } }
-    { { with $pageTags } }
-    { { range. } }
-    // Add tag as node if it doesn't exist
-    if (!tagGraphData.nodes.some(node => node.id === "{{ . }}")) {
-        // Check if this tag is in the current post
-        const isCurrentPostTag = currentPostTags.includes("{{ . }}");
+    {{ range .Site.RegularPages }}
+      {{ $pageTags := .Params.tags }}
+      {{ with $pageTags }}
+        {{ range . }}
+          // Add tag as node if it doesn't exist
+          if (!tagGraphData.nodes.some(node => node.id === "{{ . }}")) {
+              // Check if this tag is in the current post
+              const isCurrentPostTag = currentPostTags.includes("{{ . }}");
 
-        tagGraphData.nodes.push({
-            id: "{{ . }}",
-            name: "{{ . }}",
-            count: 1,
-            isCurrentPostTag: isCurrentPostTag
-        });
-    } else {
-        // Increment count for existing tag
-        const existingNode = tagGraphData.nodes.find(node => node.id === "{{ . }}");
-        existingNode.count += 1;
-    }
+              tagGraphData.nodes.push({
+                  id: "{{ . }}",
+                  name: "{{ . }}",
+                  count: 1,
+                  isCurrentPostTag: isCurrentPostTag
+              });
+          } else {
+              // Increment count for existing tag
+              const existingNode = tagGraphData.nodes.find(node => node.id === "{{ . }}");
+              existingNode.count += 1;
+          }
 
-    // Create links between co-occurring tags on this page
-    { { range $pageTags } }
-    { { $targetTag:= . } }
-    { { range $pageTags } }
-    { { if ne.$targetTag } }
-    // Add link between tags if they appear on the same page
-    const linkId = ["{{ $targetTag }}", "{{ . }}"].sort().join("-");
+          // Create links between co-occurring tags on this page
+          {{ range $pageTags }}
+            {{ $targetTag := . }}
+            {{ range $pageTags }}
+              {{ if ne $targetTag . }}
+                // Add link between tags if they appear on the same page
+                let linkId = ["{{ $targetTag }}", "{{ . }}"].sort().join("-");
 
-    // Check if both tags are from current post
-    const isCurrentPostLink = currentPostTags.includes("{{ $targetTag }}") &&
-        currentPostTags.includes("{{ . }}");
+                // Check if both tags are from current post
+                const isCurrentPostLink = currentPostTags.includes("{{ $targetTag }}") &&
+                    currentPostTags.includes("{{ . }}");
 
-    if (!tagGraphData.links.some(link => link.id === linkId)) {
-        tagGraphData.links.push({
-            id: linkId,
-            source: "{{ $targetTag }}",
-            target: "{{ . }}",
-            value: 1,
-            isCurrentPostLink: isCurrentPostLink
-        });
-    } else {
-        // Increment weight of existing link
-        const existingLink = tagGraphData.links.find(link => link.id === linkId);
-        existingLink.value += 1;
-    }
-    { { end } }
-    { { end } }
-    { { end } }
-    { { end } }
-    { { end } }
-    { { end } }
+                if (!tagGraphData.links.some(link => link.id === linkId)) {
+                    tagGraphData.links.push({
+                        id: linkId,
+                        source: "{{ $targetTag }}",
+                        target: "{{ . }}",
+                        value: 1,
+                        isCurrentPostLink: isCurrentPostLink
+                    });
+                } else {
+                    // Increment weight of existing link
+                    const existingLink = tagGraphData.links.find(link => link.id === linkId);
+                    existingLink.value += 1;
+                }
+              {{ end }}
+            {{ end }}
+          {{ end }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
 
     // Store the post-specific tag data in a differently named variable
     window.postTagGraphData = tagGraphData;
 </script>
-
-{{ with resources.Get "js/d3.min.js" }}
-<script src="{{ .RelPermalink }}"></script>
-{{ else }}
-<script src="https://d3js.org/d3.v7.min.js"></script>
-{{ end }}
 
 <script src="{{ $js.RelPermalink }}"></script>
 

@@ -3,6 +3,6 @@
 {{ $style := .Get "style" | default "force" }}
 
 <div class="tag-graph-shortcode" data-style="{{ $style }}" style="width: {{ $width }}; height: {{ $height }};">
+    {{ partial "taggraph.html" . }}
 </div>
 
-{{ partial "taggraph.html" . }}
